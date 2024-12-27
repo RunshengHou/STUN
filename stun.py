@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import random
 import subprocess
 import numpy as np
@@ -7,7 +8,7 @@ import numpy as np
 import gym
 from gym import spaces
 from workloads import face_detect
-from tqdm import tqdm
+from collections import defaultdict
 
 
 class SchedulerEnv(gym.Env):
@@ -180,6 +181,48 @@ class SchedulerEnv(gym.Env):
     def render(self, mode="human"):
         """Visualize the current parameters."""
         self.print_current_sys_params()
+
+
+class QLearningAgent:
+    def __init__(self, env, learning_rate=0.1, discount_factor=0.9, exploration_rate=1.0, exploration_decay=0.99):
+        self.env = env
+        self.q_table = defaultdict(lambda: np.zeros(env.action_space.n))
+        self.learning_rate = learning_rate
+        self.discount_factor = discount_factor
+        self.exploration_rate = exploration_rate
+        self.exploration_decay = exploration_decay
+
+    def choose_action(self, state):
+        if random.random() < self.exploration_rate:
+            return self.env.action_space.sample()  # Explore
+        else:  
+            return np.argmax(self.q_table[tuple(state)])  # Exploit
+
+    def learn(self, state, action, reward, next_state, done):
+        state_tuple = tuple(state)
+        next_state_tuple = tuple(next_state)
+
+        q_current = self.q_table[state_tuple][action]
+        q_next = np.max(self.q_table[next_state_tuple]) if not done else 0
+        self.q_table[state_tuple][action] += self.learning_rate * (reward + self.discount_factor * q_next - q_current)
+
+    def decay_exploration(self):
+        self.exploration_rate *= self.exploration_decay
+
+    def save_q_table(self, file_path="./output/q_table.json"):
+        """Save the Q-table to a JSON file."""
+        q_table_dict = {str(key): list(value) for key, value in self.q_table.items()}
+        with open(file_path, "w") as f:
+            json.dump(q_table_dict, f, indent=4)
+        print(f"Q-table saved to {file_path}")
+
+    def load_q_table(self, file_path="q_table.json"):
+        """Load the Q-table from a JSON file."""
+        with open(file_path, "r") as f:
+            q_table_dict = json.load(f)
+        self.q_table = defaultdict(lambda: np.zeros(self.env.action_space.n),
+                                   {eval(key): np.array(value) for key, value in q_table_dict.items()})
+        print(f"Q-table loaded from {file_path}")
 
 
 if __name__ == "__main__":

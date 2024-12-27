@@ -1,11 +1,8 @@
 import os
 import cv2
 import time
-
-
-import cv2
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 def process_single_image(img_path, face_cascade, save_path):
     if not os.path.isfile(img_path):
